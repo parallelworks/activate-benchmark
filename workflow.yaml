@@ -37,7 +37,6 @@ sessions:
 jobs:
   run-benchmarks:
     steps:
-      - uses: checkout
       - id: benchmark
         run: |
           bash scripts/run_benchmarks.sh
@@ -60,7 +59,7 @@ jobs:
           python scripts/generate_plot.py
           python scripts/serve_results.py &
           echo "PORT=8080" >> $OUTPUTS
-      - uses: update-session
+      - uses: parallelworks/update-session
         with:
           name: results
           remotePort: 8080
