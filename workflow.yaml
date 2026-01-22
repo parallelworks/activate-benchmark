@@ -7,6 +7,7 @@ on:
         type: compute-clusters
         label: "Target Cluster"
         autoselect: true
+
       benchmark_config:
         type: group
         label: "Benchmark Configuration"
@@ -30,6 +31,79 @@ on:
             label: "Run Disk I/O Benchmark"
             default: true
 
+      # SLURM Configuration - shown when cluster uses SLURM scheduler
+      slurm_config:
+        type: group
+        label: "SLURM Configuration"
+        hidden: ${{ inputs.cluster.schedulerType != 'slurm' }}
+        ignore: ${{ inputs.cluster.schedulerType != 'slurm' }}
+        items:
+          partition:
+            type: slurm-partitions
+            label: "Partition"
+            resource: ${{ inputs.cluster }}
+            optional: true
+          account:
+            type: slurm-accounts
+            label: "Account"
+            resource: ${{ inputs.cluster }}
+            optional: true
+          qos:
+            type: slurm-qos
+            label: "QOS"
+            resource: ${{ inputs.cluster }}
+            optional: true
+          time:
+            type: string
+            label: "Wall Time"
+            default: "01:00:00"
+            tooltip: "Format: HH:MM:SS"
+          nodes:
+            type: number
+            label: "Number of Nodes"
+            default: 1
+            min: 1
+          cpus_per_task:
+            type: number
+            label: "CPUs per Task"
+            default: 4
+            min: 1
+            max: 256
+          mem:
+            type: string
+            label: "Memory (e.g., 32G)"
+            optional: true
+          gres:
+            type: string
+            label: "GRES (e.g., gpu:1)"
+            optional: true
+
+      # PBS Configuration - shown when cluster uses PBS scheduler
+      pbs_config:
+        type: group
+        label: "PBS Configuration"
+        hidden: ${{ inputs.cluster.schedulerType != 'pbs' }}
+        ignore: ${{ inputs.cluster.schedulerType != 'pbs' }}
+        items:
+          queue:
+            type: string
+            label: "Queue"
+            optional: true
+          account:
+            type: string
+            label: "Account"
+            optional: true
+          walltime:
+            type: string
+            label: "Wall Time"
+            default: "01:00:00"
+            tooltip: "Format: HH:MM:SS"
+          select:
+            type: string
+            label: "Resource Selection"
+            default: "1:ncpus=4"
+            tooltip: "e.g., 1:ncpus=8:ngpus=1:mem=32gb"
+
 sessions:
   results:
     type: tunnel
@@ -41,33 +115,97 @@ permissions:
 jobs:
   run-benchmarks:
     steps:
-      - name: Checkout service scripts
+      - name: Checkout benchmark scripts
         uses: parallelworks/checkout
         ssh:
           remoteHost: ${{ inputs.cluster.ip }}
         with:
           repo: https://github.com/parallelworks/activate-benchmark.git
-          branch: fix/workflow-additional
-      - name: benchmark
-        run: |
-          bash scripts/run_benchmarks.sh
-        env:
-          DURATION: ${{ inputs.benchmark_config.duration }}
-          RUN_CPU: ${{ inputs.benchmark_config.run_cpu }}
-          RUN_MEMORY: ${{ inputs.benchmark_config.run_memory }}
-          RUN_DISK: ${{ inputs.benchmark_config.run_disk }}
-    ssh:
-      remoteHost: ${{ inputs.cluster.ip }}
+          branch: main
+
+      - name: Run benchmarks via job_runner
+        uses: marketplace/job_runner:v4.0
+        with:
+          resource: ${{ inputs.cluster }}
+          scheduler: ${{ inputs.cluster.schedulerType == 'slurm' || inputs.cluster.schedulerType == 'pbs' }}
+          inject_markers: true
+          poll_interval: 10
+
+          # SLURM options (ignored if not SLURM)
+          partition: ${{ inputs.slurm_config.partition }}
+          account: ${{ inputs.slurm_config.account }}
+          qos: ${{ inputs.slurm_config.qos }}
+          time: ${{ inputs.slurm_config.time }}
+          nodes: ${{ inputs.slurm_config.nodes }}
+          cpus_per_task: ${{ inputs.slurm_config.cpus_per_task }}
+          mem: ${{ inputs.slurm_config.mem }}
+          gres: ${{ inputs.slurm_config.gres }}
+
+          # PBS options (ignored if not PBS)
+          queue: ${{ inputs.pbs_config.queue }}
+          walltime: ${{ inputs.pbs_config.walltime }}
+          select: ${{ inputs.pbs_config.select }}
+
+          use_existing_script: false
+          script: |
+            #!/bin/bash
+            set -e
+
+            # Set environment variables for benchmark
+            export DURATION=${{ inputs.benchmark_config.duration }}
+            export RUN_CPU=${{ inputs.benchmark_config.run_cpu }}
+            export RUN_MEMORY=${{ inputs.benchmark_config.run_memory }}
+            export RUN_DISK=${{ inputs.benchmark_config.run_disk }}
+
+            echo "=== Running Single Node Benchmark ==="
+            echo "Duration: ${DURATION}s"
+            echo "CPU: ${RUN_CPU}, Memory: ${RUN_MEMORY}, Disk: ${RUN_DISK}"
+            echo "Hostname: $(hostname)"
+            echo ""
+
+            # Run the benchmark script
+            bash scripts/run_benchmarks.sh
+
+            echo ""
+            echo "=== Benchmark Complete ==="
+
+            # Copy results to a known location for retrieval
+            RESULTS_DIR="${HOME}/benchmark_results_${PW_JOB_ID}"
+            mkdir -p "${RESULTS_DIR}"
+            cp -r ./results/* "${RESULTS_DIR}/" 2>/dev/null || true
+            echo "Results saved to: ${RESULTS_DIR}"
     outputs:
-      results_file: ${{ steps.benchmark.outputs.RESULTS_FILE }}
+      results_dir: ${{ steps.benchmark.outputs.RESULTS_DIR }}
 
   visualize_results:
     needs: [run-benchmarks]
-    ssh:
-      remoteHost: ${{ inputs.cluster.ip }}
+    # Run on user workspace (no SSH) - works regardless of cluster type
     steps:
-      - name: Setup and generate visualization
+      - name: Setup visualization environment
         run: |
+          # Create venv if it doesn't exist
+          if [ ! -d ~/venv ]; then
+            python3 -m venv ~/venv
+          fi
+          source ~/venv/bin/activate
+
+          # Install dependencies
+          pip install plotly
+
+      - name: Copy results from cluster
+        run: |
+          RESULTS_DIR="${HOME}/benchmark_results_${PW_JOB_ID}"
+          mkdir -p ./results
+
+          # Copy results from the cluster
+          scp -r ${{ inputs.cluster.user }}@${{ inputs.cluster.ip }}:${RESULTS_DIR}/* ./results/ || echo "Warning: Could not copy results"
+
+          echo "RESULTS_COPIED=true" >> $OUTPUTS
+
+      - name: Generate visualization
+        run: |
+          source ~/venv/bin/activate
+
           # Kill any existing process on port 8080
           if lsof -ti:8080 > /dev/null 2>&1; then
             echo "Killing existing process on port 8080..."
@@ -75,31 +213,20 @@ jobs:
             sleep 1
           fi
 
-          # Create venv if it doesn't exist
-          if [ ! -d ~/venv ]; then
-            python3 -m venv ~/venv
-          fi
-          source ~/venv/bin/activate
-
-          # Install dependencies (use uv if available, fallback to pip)
-          if command -v uv &> /dev/null; then
-            uv pip install -r requirements.txt
-          else
-            pip install -r requirements.txt
-          fi
-
           # Generate the visualization
           python3 scripts/generate_plot.py
 
           echo "HOSTNAME=$(hostname)" >> $OUTPUTS
           echo "PORT=8080" >> $OUTPUTS
+
       - name: Update session
         uses: parallelworks/update-session
         with:
           target: ${{ inputs.cluster.id }}
           name: ${{ sessions.results }}
-          remoteHost: ${{ needs.visualize_results.outputs.HOSTNAME }}
-          remotePort: ${{ needs.visualize_results.outputs.PORT }}
+          remoteHost: localhost
+          remotePort: 8080
+
       - name: Serve results (blocking)
         run: |
           source ~/venv/bin/activate
