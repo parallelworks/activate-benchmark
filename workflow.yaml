@@ -35,6 +35,9 @@ sessions:
     type: tunnel
     redirect: true
 
+permissions:
+  - "*"
+
 jobs:
   run-benchmarks:
     steps:
