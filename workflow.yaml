@@ -90,5 +90,5 @@ jobs:
         with:
           target: ${{ inputs.cluster.id }}
           name: ${{ sessions.results }}
-          remoteHost: ${{ needs.steps.serve.outputs.HOSTNAME }}
-          remotePort: ${{ needs.steps.serve.outputs.PORT }}
+          remoteHost: ${{ needs.steps.visualize-results.outputs.HOSTNAME }}
+          remotePort: ${{ needs.steps.visualize-results.outputs.PORT }}
