@@ -3,7 +3,7 @@
 on:
   execute:
     inputs:
-      cluster:
+      resource:
         type: compute-clusters
         label: "Target Cluster"
         autoselect: true
@@ -31,78 +31,136 @@ on:
             label: "Run Disk I/O Benchmark"
             default: true
 
-      # SLURM Configuration - shown when cluster uses SLURM scheduler
-      slurm_config:
+      submit_to_scheduler:
+        type: boolean
+        label: Submit to Job Scheduler
+        tooltip: Enable to submit job via SLURM or PBS scheduler (detected automatically from resource). Disable for direct SSH execution.
+        default: false
+        hidden: ${{ inputs.resource.schedulerType != 'slurm' && inputs.resource.schedulerType != 'pbs' }}
+
+      slurm:
         type: group
-        label: "SLURM Configuration"
-        hidden: ${{ inputs.cluster.schedulerType != 'slurm' }}
-        ignore: ${{ inputs.cluster.schedulerType != 'slurm' }}
+        label: SLURM Configuration
+        hidden: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+        collapsed: true
         items:
+          is_disabled:
+            type: boolean
+            default: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+            hidden: true
+
+          account:
+            label: Account
+            type: slurm-accounts
+            resource: ${{ inputs.resource }}
+            tooltip: SLURM account for job submission (--account)
+            optional: true
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
           partition:
             type: slurm-partitions
-            label: "Partition"
-            resource: ${{ inputs.cluster.ip }}
+            label: Partition
             optional: true
-          account:
-            type: slurm-accounts
-            label: "Account"
-            resource: ${{ inputs.cluster.ip }}
-            optional: true
+            resource: ${{ inputs.resource }}
+            tooltip: Partition for job submission (--partition)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
           qos:
+            label: Quality of Service (QoS)
             type: slurm-qos
-            label: "QOS"
-            resource: ${{ inputs.cluster.ip }}
+            resource: ${{ inputs.resource }}
+            tooltip: SLURM QoS setting (--qos)
             optional: true
-          time:
-            type: string
-            label: "Wall Time"
-            default: "01:00:00"
-            tooltip: "Format: HH:MM:SS"
-          nodes:
-            type: number
-            label: "Number of Nodes"
-            default: 1
-            min: 1
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
           cpus_per_task:
             type: number
-            label: "CPUs per Task"
-            default: 4
+            label: CPUs per Task
             min: 1
             max: 256
-          mem:
-            type: string
-            label: "Memory (e.g., 32G)"
-            optional: true
-          gres:
-            type: string
-            label: "GRES (e.g., gpu:1)"
-            optional: true
+            default: 1
+            tooltip: Number of CPUs for the job (--cpus-per-task)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
 
-      # PBS Configuration - shown when cluster uses PBS scheduler
-      pbs_config:
+          time:
+            label: Walltime
+            type: string
+            default: 04:00:00
+            tooltip: Maximum job duration, e.g., 04:00:00 (--time)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
+          gres:
+            label: GPUs (gres)
+            type: dropdown
+            default: ""
+            optional: true
+            tooltip: GPU resource specification (--gres). Leave empty for CPU-only jobs.
+            options:
+              - value: ""
+                label: "No GPU (CPU only)"
+              - value: "gpu:1"
+                label: "1 GPU (gpu:1)"
+              - value: "gpu:2"
+                label: "2 GPUs (gpu:2)"
+              - value: "gpu:4"
+                label: "4 GPUs (gpu:4)"
+              - value: "gpu:8"
+                label: "8 GPUs (gpu:8)"
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
+          scheduler_directives:
+            type: editor
+            label: Additional Directives
+            optional: true
+            tooltip: Additional SLURM directives (include #SBATCH prefix)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'slurm' }}
+
+      pbs:
         type: group
-        label: "PBS Configuration"
-        hidden: ${{ inputs.cluster.schedulerType != 'pbs' }}
-        ignore: ${{ inputs.cluster.schedulerType != 'pbs' }}
+        label: PBS Configuration
+        hidden: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+        collapsed: true
         items:
-          queue:
-            type: string
-            label: "Queue"
-            optional: true
+          is_disabled:
+            type: boolean
+            default: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+            hidden: true
+
           account:
+            label: Account
             type: string
-            label: "Account"
             optional: true
+            tooltip: PBS account for job submission (-A)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+
+          queue:
+            label: Queue
+            type: string
+            optional: true
+            tooltip: PBS queue name (-q)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+
           walltime:
+            label: Walltime
             type: string
-            label: "Wall Time"
-            default: "01:00:00"
-            tooltip: "Format: HH:MM:SS"
+            default: 04:00:00
+            tooltip: Maximum job duration, e.g., 04:00:00 (-l walltime=)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+
           select:
+            label: Resource Selection
             type: string
-            label: "Resource Selection"
-            default: "1:ncpus=4"
-            tooltip: "e.g., 1:ncpus=8:ngpus=1:mem=32gb"
+            default: "1:ncpus=8:ngpus=1"
+            placeholder: "1:ncpus=8:ngpus=1"
+            tooltip: PBS resource selection string, e.g., 1:ncpus=8:ngpus=1 (-l select=)
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
+
+          scheduler_directives:
+            label: Additional Directives
+            type: editor
+            tooltip: Additional PBS directives (include #PBS prefix)
+            optional: true
+            ignore: ${{ inputs.submit_to_scheduler != true || inputs.resource.schedulerType != 'pbs' }}
 
 sessions:
   results:
@@ -118,7 +176,7 @@ jobs:
       - name: Checkout benchmark scripts
         uses: parallelworks/checkout
         ssh:
-          remoteHost: ${{ inputs.cluster.ip }}
+          remoteHost: ${{ inputs.resource.ip }}
         with:
           repo: https://github.com/parallelworks/activate-benchmark.git
           branch: main
@@ -126,25 +184,26 @@ jobs:
       - name: Run benchmarks via job_runner
         uses: marketplace/job_runner:v4.0
         with:
-          resource: ${{ inputs.cluster.ip }}
-          scheduler: ${{ inputs.cluster.schedulerType == 'slurm' || inputs.cluster.schedulerType == 'pbs' }}
+          resource: ${{ inputs.resource.ip }}
+          scheduler: ${{ inputs.submit_to_scheduler }}
           inject_markers: true
           poll_interval: 10
 
           # SLURM options (ignored if not SLURM)
-          partition: ${{ inputs.slurm_config.partition }}
-          account: ${{ inputs.slurm_config.account }}
-          qos: ${{ inputs.slurm_config.qos }}
-          time: ${{ inputs.slurm_config.time }}
-          nodes: ${{ inputs.slurm_config.nodes }}
-          cpus_per_task: ${{ inputs.slurm_config.cpus_per_task }}
-          mem: ${{ inputs.slurm_config.mem }}
-          gres: ${{ inputs.slurm_config.gres }}
+          partition: ${{ inputs.slurm.partition }}
+          account: ${{ inputs.slurm.account }}
+          qos: ${{ inputs.slurm.qos }}
+          time: ${{ inputs.slurm.time }}
+          cpus_per_task: ${{ inputs.slurm.cpus_per_task }}
+          gres: ${{ inputs.slurm.gres }}
+          scheduler_directives: ${{ inputs.slurm.scheduler_directives }}
 
           # PBS options (ignored if not PBS)
-          queue: ${{ inputs.pbs_config.queue }}
-          walltime: ${{ inputs.pbs_config.walltime }}
-          select: ${{ inputs.pbs_config.select }}
+          queue: ${{ inputs.pbs.queue }}
+          walltime: ${{ inputs.pbs.walltime }}
+          select: ${{ inputs.pbs.select }}
+          pbs_account: ${{ inputs.pbs.account }}
+          pbs_scheduler_directives: ${{ inputs.pbs.scheduler_directives }}
 
           use_existing_script: false
           script: |
@@ -196,7 +255,7 @@ jobs:
           mkdir -p ./results
 
           # Copy results from the cluster
-          scp -r ${{ inputs.cluster.user }}@${{ inputs.cluster.ip }}:${RESULTS_DIR}/* ./results/ || echo "Warning: Could not copy results"
+          scp -r ${{ inputs.resource.user }}@${{ inputs.resource.ip }}:${RESULTS_DIR}/* ./results/ || echo "Warning: Could not copy results"
 
           echo "RESULTS_COPIED=true" >> $OUTPUTS
 
