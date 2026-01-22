@@ -41,17 +41,17 @@ on:
           partition:
             type: slurm-partitions
             label: "Partition"
-            resource: ${{ inputs.cluster }}
+            resource: ${{ inputs.cluster.ip }}
             optional: true
           account:
             type: slurm-accounts
             label: "Account"
-            resource: ${{ inputs.cluster }}
+            resource: ${{ inputs.cluster.ip }}
             optional: true
           qos:
             type: slurm-qos
             label: "QOS"
-            resource: ${{ inputs.cluster }}
+            resource: ${{ inputs.cluster.ip }}
             optional: true
           time:
             type: string
@@ -126,7 +126,7 @@ jobs:
       - name: Run benchmarks via job_runner
         uses: marketplace/job_runner:v4.0
         with:
-          resource: ${{ inputs.cluster }}
+          resource: ${{ inputs.cluster.ip }}
           scheduler: ${{ inputs.cluster.schedulerType == 'slurm' || inputs.cluster.schedulerType == 'pbs' }}
           inject_markers: true
           poll_interval: 10
