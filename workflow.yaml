@@ -61,7 +61,7 @@ jobs:
     outputs:
       results_file: ${{ steps.benchmark.outputs.RESULTS_FILE }}
 
-  visualize-results:
+  visualize_results:
     needs: [run-benchmarks]
     ssh:
       remoteHost: ${{ inputs.cluster.ip }}
@@ -89,5 +89,5 @@ jobs:
         with:
           target: ${{ inputs.cluster.id }}
           name: ${{ sessions.results }}
-          remoteHost: ${{ needs.steps.visualize-results.outputs.HOSTNAME }}
+          remoteHost: ${{ needs.steps.visualize_results.outputs.HOSTNAME }}
           remotePort: 8080
