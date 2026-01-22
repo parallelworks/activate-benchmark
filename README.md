@@ -7,7 +7,8 @@ System benchmarking workflow for the Parallel Works ACTIVATE platform. Runs CPU,
 ### Run Locally
 
 ```bash
-pip install -r requirements.txt
+source ~/venv/bin/activate
+uv pip install -r requirements.txt
 python scripts/local_runner.py --duration 10
 ```
 
@@ -64,8 +65,9 @@ The HTML visualization includes:
 ### Setup
 
 ```bash
-# Install development dependencies
-pip install -r requirements-dev.txt
+# Activate shared virtual environment and install development dependencies
+source ~/venv/bin/activate
+uv pip install -r requirements-dev.txt
 ```
 
 ### Run Tests
@@ -125,8 +127,10 @@ activate-benchmark/
 ## Dependencies
 
 - Python 3.8+
+- uv (fast Python package installer)
 - plotly (Python package for visualization)
 - Standard system tools: dd, python3
+- Shared virtual environment at `~/venv`
 
 ## Troubleshooting
 

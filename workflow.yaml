@@ -63,9 +63,10 @@ jobs:
     steps:
       - id: serve
         run: |
-          pip install -r requirements.txt
-          python scripts/generate_plot.py
-          python scripts/serve_results.py &
+          source ~/venv/bin/activate
+          uv pip install -r requirements.txt
+          python3 scripts/generate_plot.py
+          python3 scripts/serve_results.py &
           echo "PORT=8080" >> $OUTPUTS
       - uses: parallelworks/update-session
         with:
