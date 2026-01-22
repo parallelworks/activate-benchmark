@@ -174,8 +174,6 @@ jobs:
             mkdir -p "${RESULTS_DIR}"
             cp -r ./results/* "${RESULTS_DIR}/" 2>/dev/null || true
             echo "Results saved to: ${RESULTS_DIR}"
-    outputs:
-      results_dir: ${{ steps.benchmark.outputs.RESULTS_DIR }}
 
   visualize_results:
     needs: [run-benchmarks]
