@@ -38,6 +38,13 @@ sessions:
 jobs:
   run-benchmarks:
     steps:
+      - name: Checkout service scripts
+        uses: parallelworks/checkout
+        ssh:
+          remoteHost: ${{ inputs.cluster.ip }}
+        with:
+          repo: https://github.com/parallelworks/activate-benchmark.git
+          branch: fix/workflow-additional
       - id: benchmark
         run: |
           bash scripts/run_benchmarks.sh
