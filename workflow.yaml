@@ -6,6 +6,7 @@ on:
       cluster:
         type: compute-clusters
         label: "Target Cluster"
+        autoselect: true
       benchmark_config:
         type: group
         label: "Benchmark Configuration"
