@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://activate.parallel.works/workflow.schema.json
+---
+on:
+  execute:
+    inputs:
+      cluster:
+        type: compute-clusters
+        label: "Target Cluster"
+      benchmark_config:
+        type: group
+        label: "Benchmark Configuration"
+        items:
+          duration:
+            type: number
+            label: "Test Duration (seconds)"
+            default: 10
+            min: 5
+            max: 60
+          run_cpu:
+            type: boolean
+            label: "Run CPU Benchmark"
+            default: true
+          run_memory:
+            type: boolean
+            label: "Run Memory Benchmark"
+            default: true
+          run_disk:
+            type: boolean
+            label: "Run Disk I/O Benchmark"
+            default: true
+
+sessions:
+  results:
+    type: tunnel
+    redirect: true
+
+jobs:
+  run-benchmarks:
+    steps:
+      - uses: checkout
+      - id: benchmark
+        run: |
+          bash scripts/run_benchmarks.sh
+        env:
+          DURATION: ${{ inputs.benchmark_config.duration }}
+          RUN_CPU: ${{ inputs.benchmark_config.run_cpu }}
+          RUN_MEMORY: ${{ inputs.benchmark_config.run_memory }}
+          RUN_DISK: ${{ inputs.benchmark_config.run_disk }}
+    ssh:
+      remoteHost: ${{ inputs.cluster }}
+    outputs:
+      results_file: ${{ steps.benchmark.outputs.RESULTS_FILE }}
+
+  visualize-results:
+    needs: [run-benchmarks]
+    steps:
+      - uses: checkout
+      - id: serve
+        run: |
+          pip install -r requirements.txt
+          python scripts/generate_plot.py
+          python scripts/serve_results.py &
+          echo "PORT=8080" >> $OUTPUTS
+      - uses: update-session
+        with:
+          name: results
+          remotePort: 8080
+    ssh:
+      remoteHost: ${{ inputs.cluster }}
