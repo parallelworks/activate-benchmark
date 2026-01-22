@@ -172,17 +172,17 @@ permissions:
 
 jobs:
   run-benchmarks:
+    ssh:
+      remoteHost: ${{ inputs.resource.ip }}
     steps:
       - name: Checkout benchmark scripts
         uses: parallelworks/checkout
-        ssh:
-          remoteHost: ${{ inputs.resource.ip }}
         with:
           repo: https://github.com/parallelworks/activate-benchmark.git
           branch: main
 
       - name: Run benchmarks via job_runner
-        uses: marketplace/job_runner:v4.0
+        uses: marketplace/job_runner/v4.0
         with:
           resource: ${{ inputs.resource.ip }}
           scheduler: ${{ inputs.submit_to_scheduler }}
