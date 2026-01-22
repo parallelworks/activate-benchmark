@@ -83,7 +83,6 @@ jobs:
 
           python3 scripts/generate_plot.py
           python3 scripts/serve_results.py &
-          echo "PORT=8080" >> $OUTPUTS
           echo "HOSTNAME=$(hostname)" >> $OUTPUTS
       - name: Update session
         uses: parallelworks/update-session
@@ -91,4 +90,4 @@ jobs:
           target: ${{ inputs.cluster.id }}
           name: ${{ sessions.results }}
           remoteHost: ${{ needs.steps.visualize-results.outputs.HOSTNAME }}
-          remotePort: ${{ needs.steps.visualize-results.outputs.PORT }}
+          remotePort: 8080
