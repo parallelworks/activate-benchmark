@@ -54,7 +54,6 @@ jobs:
   visualize-results:
     needs: [run-benchmarks]
     steps:
-      - uses: checkout
       - id: serve
         run: |
           pip install -r requirements.txt
