@@ -63,6 +63,8 @@ jobs:
 
   visualize-results:
     needs: [run-benchmarks]
+    ssh:
+      remoteHost: ${{ inputs.cluster.ip }}
     steps:
       - id: serve
         run: |
@@ -71,7 +73,11 @@ jobs:
           python3 scripts/generate_plot.py
           python3 scripts/serve_results.py &
           echo "PORT=8080" >> $OUTPUTS
-      - uses: parallelworks/update-session
+          echo "HOSTNAME=$(hostname)" >> $OUTPUTS
+      - name: Update session
+        uses: parallelworks/update-session
         with:
-          name: results
-          remotePort: 8080
+          target: ${{ inputs.cluster.id }}
+          name: ${{ sessions.results }}
+          remoteHost: ${{ steps.serve.outputs.HOSTNAME }}
+          remotePort: ${{ steps.serve.outputs.PORT }}
