@@ -66,7 +66,7 @@ jobs:
     ssh:
       remoteHost: ${{ inputs.cluster.ip }}
     steps:
-      - name: serve
+      - name: Setup and generate visualization
         run: |
           # Kill any existing process on port 8080
           if lsof -ti:8080 > /dev/null 2>&1; then
@@ -88,8 +88,9 @@ jobs:
             pip install -r requirements.txt
           fi
 
+          # Generate the visualization
           python3 scripts/generate_plot.py
-          python3 scripts/serve_results.py &
+
           echo "HOSTNAME=$(hostname)" >> $OUTPUTS
           echo "PORT=8080" >> $OUTPUTS
       - name: Update session
@@ -99,11 +100,10 @@ jobs:
           name: ${{ sessions.results }}
           remoteHost: ${{ needs.visualize_results.outputs.HOSTNAME }}
           remotePort: ${{ needs.visualize_results.outputs.PORT }}
-      - name: Keep session alive
+      - name: Serve results (blocking)
         run: |
-          echo "Session is active. Press Ctrl+C or cancel the workflow to stop."
-          echo "Results available at the session URL above."
-          # Block indefinitely to keep the session alive
-          while true; do
-            sleep 60
-          done
+          source ~/venv/bin/activate
+          echo "Starting HTTP server on port 8080..."
+          echo "Session is active. Cancel the workflow to stop."
+          # Run server in foreground - this blocks and keeps session alive
+          python3 scripts/serve_results.py
