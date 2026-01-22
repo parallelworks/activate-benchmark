@@ -48,7 +48,7 @@ jobs:
         with:
           repo: https://github.com/parallelworks/activate-benchmark.git
           branch: fix/workflow-additional
-      - id: benchmark
+      - name: benchmark
         run: |
           bash scripts/run_benchmarks.sh
         env:
@@ -66,7 +66,7 @@ jobs:
     ssh:
       remoteHost: ${{ inputs.cluster.ip }}
     steps:
-      - id: serve
+      - name: serve
         run: |
           # Create venv if it doesn't exist
           if [ ! -d ~/venv ]; then
