@@ -220,9 +220,8 @@ jobs:
       - name: Update session
         uses: parallelworks/update-session
         with:
-          target: ${{ inputs.cluster.id }}
+          target: user-workspace
           name: ${{ sessions.results }}
-          remoteHost: localhost
           remotePort: 8080
 
       - name: Serve results (blocking)
