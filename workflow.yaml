@@ -47,7 +47,7 @@ jobs:
           RUN_MEMORY: ${{ inputs.benchmark_config.run_memory }}
           RUN_DISK: ${{ inputs.benchmark_config.run_disk }}
     ssh:
-      remoteHost: ${{ inputs.cluster }}
+      remoteHost: ${{ inputs.cluster.ip }}
     outputs:
       results_file: ${{ steps.benchmark.outputs.RESULTS_FILE }}
 
