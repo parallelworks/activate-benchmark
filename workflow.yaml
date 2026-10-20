@@ -49,6 +49,7 @@ jobs:
           repo: https://github.com/parallelworks/activate-benchmark.git
           branch: fix/workflow-additional
       - name: benchmark
+        id: benchmark
         run: |
           bash scripts/run_benchmarks.sh
         env:
